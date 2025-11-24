@@ -286,9 +286,7 @@ export default function WitchLairEscape() {
             onClick={startGame}
             className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors shadow-lg flex items-center justify-center gap-2"
           >
-            <Skull className="w-6 h-6" />
             Enter the Lair
-            <Skull className="w-6 h-6" />
           </button>
         </div>
       </div>
