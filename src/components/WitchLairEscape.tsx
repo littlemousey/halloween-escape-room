@@ -1,26 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Clock, Eye, Skull, Moon, Flame, Sparkles, BookOpen, Lock, Home, Droplets, Map } from 'lucide-react';
 
-type GameState = 'intro' | 'playing' | 'won' | 'lost';
-type Room = 'forest' | 'entrance' | 'potionRoom' | 'lair';  
-type Item = 'map' | 'iron_key' | 'moonflower' | 'raven_feather' | 'crystal_shard' | 'shadow_moss' | 'escape_potion' | 'decoy_bottle' | 'decoy_herb';
-type HintType = 'map' | 'riddle' | 'runes' | 'hidden' | 'spellbook' | 'potion' | 'final' | null;
-type SearchLocation = 'dusty_shelf' | 'ancient_chest' | 'cobweb_corner' | 'stone_altar' | 'broken_mirror' | 'dark_nook';
-type RuneType = 'moon' | 'star' | 'skull' | 'eye' | 'flame';
-
 export default function WitchLairEscape() {
-  const [gameState, setGameState] = useState<GameState>('intro');
-  const [currentRoom, setCurrentRoom] = useState<Room>('forest');
+  const [gameState, setGameState] = useState('intro');
+  const [currentRoom, setCurrentRoom] = useState('forest');
   const [timeLeft, setTimeLeft] = useState(3600);
-  const [inventory, setInventory] = useState<Item[]>([]);
+  const [inventory, setInventory] = useState<string[]>([]);
   const [roomsUnlocked, setRoomsUnlocked] = useState({
     forest: true,
-    entrance: false,
+    whispers: false,
     potionRoom: false,
     lair: false
   });
   const [puzzlesSolved, setPuzzlesSolved] = useState({
     map: false,
+    mapCoordinate: false,
     doorRiddle: false,
     runeMatching: false,
     hiddenObjects: false,
@@ -29,14 +23,16 @@ export default function WitchLairEscape() {
     finalEscape: false
   });
   const [hints, setHints] = useState(5);
-  const [showHint, setShowHint] = useState<HintType>(null);
+  const [showHint, setShowHint] = useState<string | null>(null);
   const [riddleAnswer, setRiddleAnswer] = useState('');
   const [spellAnswer, setSpellAnswer] = useState('');
-  const [potionIngredients, setPotionIngredients] = useState<Item[]>([]);
+  const [potionIngredients, setPotionIngredients] = useState<string[]>([]);
   const [finalCode, setFinalCode] = useState('');
-  const [searchedLocations, setSearchedLocations] = useState<SearchLocation[]>([]);
-  const [runePattern, setRunePattern] = useState<RuneType[]>([]);
+  const [searchedLocations, setSearchedLocations] = useState<string[]>([]);
+  const [runePattern, setRunePattern] = useState<string[]>([]);
+  const [lastSearchMessage, setLastSearchMessage] = useState('');
   const [runeAttempts, setRuneAttempts] = useState(0);
+  const [mapCoordinate, setMapCoordinate] = useState('');
 
   const correctRunePattern = ['moon', 'star', 'skull', 'eye', 'flame'];
 
@@ -65,17 +61,17 @@ export default function WitchLairEscape() {
     setGameState('playing');
   };
 
-  const addToInventory = (item: Item) => {
+  const addToInventory = (item: string) => {
     if (!inventory.includes(item)) {
       setInventory([...inventory, item]);
     }
   };
 
-  const removeFromInventory = (item: Item) => {
+  const removeFromInventory = (item: string) => {
     setInventory(inventory.filter(i => i !== item));
   };
 
-  const useHint = (puzzle: HintType) => {
+  const useHint = (puzzle: string) => {
     if (hints > 0) {
       setHints(hints - 1);
       setShowHint(puzzle);
@@ -87,7 +83,17 @@ export default function WitchLairEscape() {
     if (!puzzlesSolved.map) {
       setPuzzlesSolved({...puzzlesSolved, map: true});
       addToInventory('map');
-      setRoomsUnlocked({...roomsUnlocked, entrance: true});
+    }
+  };
+
+  const solveMapCoordinate = () => {
+    if (mapCoordinate.toUpperCase().trim() === 'D2') {
+      setPuzzlesSolved({...puzzlesSolved, mapCoordinate: true});
+      setRoomsUnlocked({...roomsUnlocked, whispers: true});
+      setMapCoordinate('');
+    } else if (mapCoordinate.trim() !== '') {
+      alert('That location leads nowhere. The entrance must be elsewhere...');
+      setMapCoordinate('');
     }
   };
 
@@ -103,28 +109,41 @@ export default function WitchLairEscape() {
     }
   };
 
-  const searchLocation = (location: SearchLocation) => {
+  const searchLocation = (location: string) => {
     if (!searchedLocations.includes(location)) {
       setSearchedLocations([...searchedLocations, location]);
       
-      const findings: Record<SearchLocation, { item: Item; message: string }> = {
+      const findings: Record<string, { item: string | null; message: string; special?: string }> = {
+        // Forest locations
+        hollow_tree: { item: null, message: 'The hollow is empty, filled only with rotting leaves and the scent of decay.' },
+        stone_marker: { item: null, message: 'Ancient runes cover the stone, but no map lies here. Only cold, dead rock.' },
+        twisted_roots: { item: null, message: 'You pry through the twisted roots. Nothing but dirt and darkness beneath.' },
+        old_stump: { item: 'map', message: 'Your fingers find a hidden compartment! An ancient map unfolds in your hands, revealing the lair\'s secrets!', special: 'map' },
+        moss_rock: { item: null, message: 'Moss and lichen cling to the rock. You find nothing beneath but more stone.' },
+        dead_branches: { item: null, message: 'The branches crumble at your touch. No map here, only the brittle remains of dead wood.' },
+        // Entrance Hall locations
         dusty_shelf: { item: 'decoy_bottle', message: 'You found a dusty bottle of unknown liquid. It might be useful...' },
         ancient_chest: { item: 'moonflower', message: 'Hidden inside is a rare Moonflower! Its petals glow softly.' },
         cobweb_corner: { item: 'decoy_herb', message: 'You found some dried herbs, but they look ordinary and withered.' },
         stone_altar: { item: 'raven_feather', message: 'A jet-black Raven Feather rests on the altar, pristine and powerful.' },
+        // Potion Room locations
         broken_mirror: { item: 'crystal_shard', message: 'Among the shards, one piece glows with inner light - a Crystal Shard!' },
         dark_nook: { item: 'shadow_moss', message: 'Growing in the deepest shadow, you find the rare Shadow Moss.' }
       };
 
       const finding = findings[location];
       if (finding) {
-        addToInventory(finding.item);
-        alert(finding.message);
+        setLastSearchMessage(finding.message);
+        if (finding.special === 'map') {
+          solveMapPuzzle();
+        } else if (finding.item) {
+          addToInventory(finding.item);
+        }
       }
     }
   };
 
-  const addRuneToPattern = (rune: RuneType) => {
+  const addRuneToPattern = (rune: string) => {
     if (runePattern.length < 5) {
       setRunePattern([...runePattern, rune]);
     }
@@ -157,7 +176,7 @@ export default function WitchLairEscape() {
   };
 
   const checkHiddenObjects = () => {
-    const requiredLocations: SearchLocation[] = ['ancient_chest', 'stone_altar', 'broken_mirror', 'dark_nook'];
+    const requiredLocations = ['ancient_chest', 'stone_altar', 'broken_mirror', 'dark_nook'];
     const foundAll = requiredLocations.every(loc => searchedLocations.includes(loc));
     if (foundAll && !puzzlesSolved.hiddenObjects) {
       setPuzzlesSolved({...puzzlesSolved, hiddenObjects: true});
@@ -169,7 +188,7 @@ export default function WitchLairEscape() {
     checkHiddenObjects();
   }, [searchedLocations]);
 
-  const addPotionIngredient = (ingredient: Item) => {
+  const addPotionIngredient = (ingredient: string) => {
     if (!potionIngredients.includes(ingredient) && inventory.includes(ingredient)) {
       setPotionIngredients([...potionIngredients, ingredient]);
       removeFromInventory(ingredient);
@@ -210,8 +229,8 @@ export default function WitchLairEscape() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getInventoryIcon = (item: Item) => {
-    const icons: Record<Item, JSX.Element> = {
+  const getInventoryIcon = (item: string) => {
+    const icons: Record<string, JSX.Element> = {
       map: <Map className="w-5 h-5" />,
       iron_key: <Lock className="w-5 h-5" />,
       moonflower: <Sparkles className="w-5 h-5" />,
@@ -225,8 +244,8 @@ export default function WitchLairEscape() {
     return icons[item] || <Sparkles className="w-5 h-5" />;
   };
 
-  const getItemName = (item: Item) => {
-    const names: Record<Item, string> = {
+  const getItemName = (item: string) => {
+    const names: Record<string, string> = {
       map: 'Ancient Map',
       iron_key: 'Iron Key',
       moonflower: 'Moonflower',
@@ -240,8 +259,8 @@ export default function WitchLairEscape() {
     return names[item] || item;
   };
 
-  const getRuneIcon = (rune: RuneType) => {
-    const icons: Record<RuneType, JSX.Element> = {
+  const getRuneIcon = (rune: string) => {
+    const icons: Record<string, JSX.Element> = {
       moon: <Moon className="w-6 h-6" />,
       star: <Sparkles className="w-6 h-6" />,
       skull: <Skull className="w-6 h-6" />,
@@ -262,23 +281,24 @@ export default function WitchLairEscape() {
           </div>
           <div className="text-purple-200 mb-6 leading-relaxed space-y-4">
             <p>
-              Deep in the cursed forest, legends speak of a powerful witch who vanished centuries ago, leaving her lair hidden from mortal eyes. You've discovered an ancient map that supposedly leads to her dwelling.
+              In your village, there's a chilling tale passed down through generations - the story of the Witch of Darkwood Forest. They say she lures children into the woods with whispers and shadows, and those who follow are never seen again. Some claim her lair lies hidden deep within the cursed forest.
             </p>
             <p>
-              Driven by curiosity and a touch of foolishness, you venture into the woods on this moonless night. As you find the lair and step inside, the door slams shut behind you with an echoing boom. The witch's magic has trapped you!
+              When your friends told you this story around the campfire, you laughed it off as nothing more than a legend to scare the young. But they saw the doubt in your eyes and issued a challenge: "If you're so brave, find her lair. Prove the witch doesn't exist."
             </p>
             <p className="text-yellow-400 font-semibold">
-              You have 60 minutes to explore the lair, solve the witch's puzzles, brew an escape potion, and break free before she returns at midnight...
+              Unable to back down, you venture into the forest as dusk falls. Your mission: find the supposed lair and prove once and for all that it's just a fairy tale...
             </p>
           </div>
           <div className="bg-purple-900 bg-opacity-50 p-4 rounded-lg mb-6 border-2 border-purple-500">
             <h3 className="text-purple-300 font-bold mb-3 text-lg">How to Play:</h3>
             <ul className="text-purple-200 space-y-2 text-sm">
-              <li>• Navigate through 4 rooms: Forest, Entrance Hall, Potion Room, and Secret Lair</li>
+              <li>• Find the hidden map in the dark forest</li>
+              <li>• Solve the map's riddle to locate the lair's entrance</li>
+              <li>• Navigate through 4 areas and solve puzzles to escape</li>
               <li>• Search different locations to find hidden objects - some are decoys!</li>
               <li>• Solve riddles, match rune patterns, and decode spellbooks</li>
-              <li>• Find the correct ingredients (avoid decoys) and brew them in the right order</li>
-              <li>• Complete all puzzles to escape before midnight</li>
+              <li>• Brew the escape potion with ingredients in the correct order</li>
               <li>• Use 5 hints wisely if you get stuck</li>
             </ul>
           </div>
@@ -352,7 +372,7 @@ export default function WitchLairEscape() {
             </div>
           </div>
           <div className="text-purple-300 text-lg font-bold">
-            Current: {currentRoom === 'forest' ? '🌲 Forest' : currentRoom === 'entrance' ? '🏠 Entrance' : currentRoom === 'potionRoom' ? '🧪 Potion Room' : '🔮 Secret Lair'}
+            Current: {currentRoom === 'forest' ? '🌲 Forest' : currentRoom === 'whispers' ? '👁️ Hall of Whispers' : currentRoom === 'potionRoom' ? '🧪 Potion Room' : '🔮 Secret Lair'}
           </div>
         </div>
       </div>
@@ -372,12 +392,12 @@ export default function WitchLairEscape() {
               🌲 Forest Path
             </button>
           )}
-          {roomsUnlocked.entrance && (
+          {roomsUnlocked.whispers && (
             <button
-              onClick={() => setCurrentRoom('entrance')}
-              className={`px-4 py-2 rounded transition-colors ${currentRoom === 'entrance' ? 'bg-purple-600 text-white' : 'bg-purple-900 text-purple-300 hover:bg-purple-800'}`}
+              onClick={() => setCurrentRoom('whispers')}
+              className={`px-4 py-2 rounded transition-colors ${currentRoom === 'whispers' ? 'bg-purple-600 text-white' : 'bg-purple-900 text-purple-300 hover:bg-purple-800'}`}
             >
-              🏠 Entrance Hall
+              👁️ Hall of Whispers
             </button>
           )}
           {roomsUnlocked.potionRoom && (
@@ -420,7 +440,8 @@ export default function WitchLairEscape() {
       {showHint && (
         <div className="bg-yellow-900 border-2 border-yellow-600 rounded-lg p-4 mb-4 text-yellow-100 shadow-lg">
           <strong>💡 Hint: </strong>
-          {showHint === 'map' && "Look for something ancient on the old tree stump. Maps are often found in hidden places..."}
+          {showHint === 'map' && "The map is well hidden in the forest. Look for an old weathered stump - ancient things are often hidden in ancient places..."}
+          {showHint === 'mapCoordinate' && "The riddle speaks of the southeastern corner. Look at the map grid - which coordinate is in the southeast (bottom-right area)? The answer format is like 'A1' or 'D2'."}
           {showHint === 'riddle' && "Think about what follows you in light but disappears in darkness. It's cast by your body..."}
           {showHint === 'hidden' && "Search the ancient chest, stone altar, broken mirror, and dark nook for the REAL ingredients. Avoid the decoys!"}
           {showHint === 'runes' && "The pattern represents the witch's power: Moon (lunar magic), Star (celestial), Skull (death), Eye (vision), Flame (destruction)"}
@@ -437,24 +458,177 @@ export default function WitchLairEscape() {
           <div className="bg-black bg-opacity-80 border-2 border-purple-600 rounded-lg p-6 shadow-lg">
             <h2 className="text-purple-300 font-bold text-2xl mb-4">🌲 Dark Forest Path</h2>
             <p className="text-purple-200 mb-4">
-              Twisted trees surround you, their branches forming ominous shapes against the dark sky. An old stone marker points deeper into the woods. You can make out the silhouette of a decrepit building ahead.
+              Twisted trees surround you, their branches forming ominous shapes against the dark sky. An old stone marker points deeper into the woods. You can make out the silhouette of a decrepit building ahead. Legends say a map is hidden somewhere in this cursed forest...
             </p>
             
             {!puzzlesSolved.map && (
               <div className="bg-purple-900 bg-opacity-50 p-4 rounded-lg mb-4 border border-purple-500">
-                <h3 className="text-purple-300 font-bold mb-2 flex items-center gap-2">
+                <h3 className="text-purple-300 font-bold mb-3 flex items-center gap-2">
                   <Map className="w-5 h-5" />
-                  Old Tree Stump
+                  Search for the Hidden Map
                 </h3>
-                <p className="text-purple-200 mb-3 text-sm">A weathered stump covered in moss. Something seems hidden in a hollow beneath it...</p>
-                <button
-                  onClick={solveMapPuzzle}
-                  className="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded transition-colors"
-                >
-                  Search the Stump
-                </button>
+                <p className="text-purple-200 mb-3 text-sm">
+                  The forest is dark and mysterious. Search different locations to find the ancient map that reveals the lair's entrance.
+                </p>
+                
+                {lastSearchMessage && currentRoom === 'forest' && (
+                  <div className={`mb-3 p-3 rounded border ${
+                    puzzlesSolved.map 
+                      ? 'bg-green-900 bg-opacity-30 border-green-600 text-green-300'
+                      : 'bg-gray-900 bg-opacity-50 border-gray-600 text-gray-300'
+                  }`}>
+                    <p className="text-sm italic">{lastSearchMessage}</p>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => searchLocation('hollow_tree')}
+                    disabled={searchedLocations.includes('hollow_tree')}
+                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                      searchedLocations.includes('hollow_tree')
+                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-800 hover:bg-purple-700 text-purple-200'
+                    }`}
+                  >
+                    {searchedLocations.includes('hollow_tree') ? '❌ Hollow Tree' : 'Hollow Tree'}
+                  </button>
+                  <button
+                    onClick={() => searchLocation('stone_marker')}
+                    disabled={searchedLocations.includes('stone_marker')}
+                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                      searchedLocations.includes('stone_marker')
+                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-800 hover:bg-purple-700 text-purple-200'
+                    }`}
+                  >
+                    {searchedLocations.includes('stone_marker') ? '❌ Stone Marker' : 'Stone Marker'}
+                  </button>
+                  <button
+                    onClick={() => searchLocation('twisted_roots')}
+                    disabled={searchedLocations.includes('twisted_roots')}
+                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                      searchedLocations.includes('twisted_roots')
+                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-800 hover:bg-purple-700 text-purple-200'
+                    }`}
+                  >
+                    {searchedLocations.includes('twisted_roots') ? '❌ Twisted Roots' : 'Twisted Roots'}
+                  </button>
+                  <button
+                    onClick={() => searchLocation('old_stump')}
+                    disabled={searchedLocations.includes('old_stump')}
+                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                      searchedLocations.includes('old_stump')
+                        ? puzzlesSolved.map 
+                          ? 'bg-green-700 text-green-200 cursor-not-allowed'
+                          : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-800 hover:bg-purple-700 text-purple-200'
+                    }`}
+                  >
+                    {searchedLocations.includes('old_stump') ? (puzzlesSolved.map ? '✓ Old Stump' : '❌ Old Stump') : 'Old Stump'}
+                  </button>
+                  <button
+                    onClick={() => searchLocation('moss_rock')}
+                    disabled={searchedLocations.includes('moss_rock')}
+                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                      searchedLocations.includes('moss_rock')
+                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-800 hover:bg-purple-700 text-purple-200'
+                    }`}
+                  >
+                    {searchedLocations.includes('moss_rock') ? '❌ Moss-Covered Rock' : 'Moss-Covered Rock'}
+                  </button>
+                  <button
+                    onClick={() => searchLocation('dead_branches')}
+                    disabled={searchedLocations.includes('dead_branches')}
+                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                      searchedLocations.includes('dead_branches')
+                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-800 hover:bg-purple-700 text-purple-200'
+                    }`}
+                  >
+                    {searchedLocations.includes('dead_branches') ? '❌ Dead Branches' : 'Dead Branches'}
+                  </button>
+                </div>
                 <button
                   onClick={() => useHint('map')}
+                  className="mt-3 text-yellow-400 text-sm hover:text-yellow-300"
+                >
+                  Hint ({hints} left)
+                </button>
+              </div>
+            )}
+
+            {puzzlesSolved.map && !puzzlesSolved.mapCoordinate && (
+              <div className="bg-purple-900 bg-opacity-50 p-4 rounded-lg border border-purple-500">
+                <h3 className="text-purple-300 font-bold mb-3 flex items-center gap-2">
+                  <Map className="w-5 h-5" />
+                  Decipher the Map
+                </h3>
+                <p className="text-purple-200 mb-3 text-sm">
+                  The ancient map shows a grid of the forest with 5 locations marked. A riddle is inscribed at the bottom:
+                </p>
+                <div className="bg-black bg-opacity-50 p-3 rounded mb-3 border border-purple-700">
+                  <p className="text-purple-300 italic text-sm mb-3">
+                    "Where the shadow falls longest,<br/>
+                    And the eastern wind whispers cold,<br/>
+                    In the corner where darkness dwells deepest,<br/>
+                    There the witch's door shall unfold."
+                  </p>
+                  
+                  {/* Map Grid */}
+                  <div className="bg-purple-950 p-4 rounded border border-purple-600">
+                    <div className="grid grid-cols-5 gap-1 mb-2">
+                      <div className="text-purple-400 text-xs text-center"></div>
+                      <div className="text-purple-400 text-xs text-center font-bold">A</div>
+                      <div className="text-purple-400 text-xs text-center font-bold">B</div>
+                      <div className="text-purple-400 text-xs text-center font-bold">C</div>
+                      <div className="text-purple-400 text-xs text-center font-bold">D</div>
+                    </div>
+                    {[1, 2, 3, 4].map(row => (
+                      <div key={row} className="grid grid-cols-5 gap-1 mb-1">
+                        <div className="text-purple-400 text-xs flex items-center justify-center font-bold">{row}</div>
+                        {['A', 'B', 'C', 'D'].map(col => {
+                          const coord = `${col}${row}`;
+                          const markedLocations = ['A1', 'B3', 'C4', 'D2', 'A4'];
+                          const isMarked = markedLocations.includes(coord);
+                          return (
+                            <div
+                              key={coord}
+                              className={`aspect-square flex items-center justify-center text-xs rounded ${
+                                isMarked
+                                  ? 'bg-red-900 border-2 border-red-600 text-red-300'
+                                  : 'bg-purple-900 border border-purple-700 text-purple-600'
+                              }`}
+                            >
+                              {isMarked && '🕯️'}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-purple-400 text-xs mt-2">🕯️ = Marked Location</p>
+                </div>
+                
+                <p className="text-purple-300 mb-2 text-sm">Enter the coordinate of the entrance:</p>
+                <input
+                  type="text"
+                  value={mapCoordinate}
+                  onChange={(e) => setMapCoordinate(e.target.value.toUpperCase())}
+                  placeholder="e.g. D2"
+                  className="w-full bg-purple-950 text-purple-200 px-4 py-2 rounded border-2 border-purple-600 mb-2 uppercase"
+                  maxLength={2}
+                />
+                <button
+                  onClick={solveMapCoordinate}
+                  className="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded transition-colors"
+                >
+                  Enter Location
+                </button>
+                <button
+                  onClick={() => useHint('mapCoordinate')}
                   className="ml-2 text-yellow-400 text-sm hover:text-yellow-300"
                 >
                   Hint ({hints} left)
@@ -462,20 +636,23 @@ export default function WitchLairEscape() {
               </div>
             )}
 
-            {puzzlesSolved.map && (
+            {puzzlesSolved.mapCoordinate && (
               <div className="bg-green-900 bg-opacity-30 p-4 rounded-lg border border-green-600">
-                <p className="text-green-300">✓ You found an ancient map! It reveals the entrance to the witch's lair. The path forward is now clear.</p>
+                <p className="text-green-300 mb-2">✓ You've found the entrance! A hidden door materializes before you...</p>
+                <p className="text-yellow-300 text-sm italic mt-3">
+                  You step through the doorway. The moment you cross the threshold, the door SLAMS shut behind you with a deafening boom. Your heart races as you realize - the witch's lair is real. The air grows cold. A distant cackle echoes through the darkness. She'll return at midnight...
+                </p>
               </div>
             )}
           </div>
         )}
 
-        {/* ENTRANCE HALL */}
-        {currentRoom === 'entrance' && (
+        {/* HALL OF WHISPERS */}
+        {currentRoom === 'whispers' && (
           <div className="bg-black bg-opacity-80 border-2 border-purple-600 rounded-lg p-6 shadow-lg">
-            <h2 className="text-purple-300 font-bold text-2xl mb-4">🏠 Entrance Hall</h2>
+            <h2 className="text-purple-300 font-bold text-2xl mb-4">👁️ Hall of Whispers</h2>
             <p className="text-purple-200 mb-4">
-              You've entered a dimly lit hall. Cobwebs drape from the ceiling, and ancient portraits line the walls. A large ornate door blocks the way deeper into the lair. Strange symbols glow faintly around its frame.
+              You've entered a dimly lit hall where whispers seem to echo from the walls themselves. Cobwebs drape from the ceiling, and ancient portraits line the walls, their eyes seeming to follow you. A large ornate door blocks the way deeper into the lair. Strange symbols glow faintly around its frame. You must escape before the witch returns at midnight...
             </p>
 
             {!puzzlesSolved.doorRiddle && (
